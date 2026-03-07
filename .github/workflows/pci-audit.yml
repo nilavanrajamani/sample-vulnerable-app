@@ -9,11 +9,7 @@
 #   AZURE_OPENAI_API_KEY                 – Azure OpenAI API key
 #   AZURE_OPENAI_DEPLOYMENT              – Chat deployment name (e.g. gpt-4.1-mini)
 #   AZURE_OPENAI_API_VERSION             – API version (e.g. 2024-12-01-preview)
-#
-# Optional secrets (enable RAG — improves accuracy, reduces token cost):
 #   AZURE_OPENAI_EMBEDDING_DEPLOYMENT    – Embedding deployment (e.g. text-embedding-3-small)
-#
-# Optional secrets (enable Azure AI Search backend instead of local cosine index):
 #   AZURE_SEARCH_ENDPOINT                – https://<search>.search.windows.net
 #   AZURE_SEARCH_API_KEY                 – Azure AI Search admin/query key
 #   AZURE_SEARCH_INDEX_NAME              – Index name (e.g. pci-rules)
@@ -65,19 +61,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install .
 
-      # Cache the local rule embedding index keyed by pci_rules.json content.
+      # Cache the Azure AI Search rule index metadata keyed by pci_rules.json content.
       # If the rules haven't changed, the index is reused — no API call needed.
       - name: Cache rule embeddings
         uses: actions/cache@v4
         with:
-          path: ~/.pci-auditor/rule_embeddings.json
+          path: |
+            ~/.pci-auditor/azure_search_rules_meta.json
+            ~/.pci-auditor/azure_search_rules_hash.txt
           key: pci-embeddings-${{ hashFiles('pci_auditor/rules/pci_rules.json') }}
 
-      # Build the embedding index only if the cache was not restored.
-      # Skip silently if AZURE_OPENAI_EMBEDDING_DEPLOYMENT is not configured.
+      # Build the Azure AI Search rule index (runs once per rules change).
       - name: Build rule embedding index (RAG)
-        if: env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT != ''
-        run: pci-auditor rules index-build || echo "Index build failed — will use all rules"
+        run: pci-auditor rules index-build --backend azure-search || echo "Index build failed — will use all rules"
         env:
           AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
@@ -95,6 +91,7 @@ jobs:
             --repo-path "$GITHUB_WORKSPACE" \
             --base-branch "origin/${{ github.event.pull_request.base.ref }}" \
             --head HEAD \
+            --detection-mode azure-search \
             --output-format sarif \
             --output-file pci-results/pci-pr-results.sarif \
             --fail-on critical,high
@@ -152,12 +149,13 @@ jobs:
       - name: Cache rule embeddings
         uses: actions/cache@v4
         with:
-          path: ~/.pci-auditor/rule_embeddings.json
+          path: |
+            ~/.pci-auditor/azure_search_rules_meta.json
+            ~/.pci-auditor/azure_search_rules_hash.txt
           key: pci-embeddings-${{ hashFiles('pci_auditor/rules/pci_rules.json') }}
 
       - name: Build rule embedding index (RAG)
-        if: env.AZURE_OPENAI_EMBEDDING_DEPLOYMENT != ''
-        run: pci-auditor rules index-build || echo "Index build failed — will use all rules"
+        run: pci-auditor rules index-build --backend azure-search || echo "Index build failed — will use all rules"
         env:
           AZURE_OPENAI_ENDPOINT: ${{ secrets.AZURE_OPENAI_ENDPOINT }}
           AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
@@ -173,6 +171,7 @@ jobs:
           mkdir -p pci-results
           pci-auditor scan codebase \
             --path "$GITHUB_WORKSPACE" \
+            --detection-mode azure-search \
             --output-format sarif \
             --output-file pci-results/pci-full-results.sarif \
             --fail-on critical,high
@@ -191,9 +190,9 @@ jobs:
         run: |
           pci-auditor scan codebase \
             --path "$GITHUB_WORKSPACE" \
+            --detection-mode pattern \
             --output-format json \
             --output-file pci-results/pci-full-results.json \
-            --no-ai \
             --fail-on none
         continue-on-error: true
 
