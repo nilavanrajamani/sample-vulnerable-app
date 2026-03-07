@@ -11,14 +11,14 @@ Expected: All violations found with source=pattern
 
 Rules triggered by regex in this file
 --------------------------------------
-Rule 3.3.1  CRITICAL  — PAN literal + 'cvv' / 'card_number' / 'pan' keyword
-Rule 8.6.2  CRITICAL  — password / api_key / DB_PASSWORD hardcoded
-Rule 4.2.1  CRITICAL  — http:// endpoint literal
-Rule 8.6.1  HIGH      — hashlib.md5 / hashlib.sha1
-Rule 12.3.3 HIGH      — 3DES / RC4 named in import or string
-Rule 4.2.1.1 MEDIUM   — verify=False in request call
-Rule 8.3.6  HIGH      — MIN_PASSWORD_LENGTH < 12
-Rule 6.2.4  HIGH      — execute("..." + user_input) SQL injection / eval()
+Rule 3.3.1  CRITICAL  — raw card number literal and SAD variable names
+Rule 8.6.2  CRITICAL  — hardcoded application credentials in source
+Rule 4.2.1  CRITICAL  — plaintext HTTP endpoint URL
+Rule 8.6.1  HIGH      — weak password hashing (broken digest algorithms)
+Rule 12.3.3 HIGH      — deprecated symmetric cipher algorithms
+Rule 4.2.1.1 MEDIUM   — TLS certificate validation disabled
+Rule 8.3.6  HIGH      — password minimum length below PCI requirement
+Rule 6.2.4  HIGH      — string-concatenation query (injection) and eval()
 """
 
 import hashlib
@@ -26,14 +26,14 @@ import requests
 import sqlite3
 
 # ── Rule 3.3.1 (Critical) ─────────────────────────────────────────────────────
-# Regex hits: 16-digit sequence, keywords 'pan', 'cvv', 'card_number'
+# Regex triggers: raw 16-digit card number literal and SAD variable names.
 
-PRIMARY_ACCOUNT_NUMBER = "4111111111111111"      # literal PAN stored in source
-card_number = "5500005555555559"                  # Mastercard test PAN
-cvv = "737"                                       # SAD: CVV security code
+PRIMARY_ACCOUNT_NUMBER = "4111111111111111"      # literal card number stored in source
+card_number = "5500005555555559"                  # Mastercard test card number
+cvv = "737"                                       # security code — SAD
 
 # ── Rule 8.6.2 (Critical) ─────────────────────────────────────────────────────
-# Regex hits: password = '...', api_key = '...', DB_PASSWORD = '...'
+# Regex triggers: credential assignments with literal string values.
 
 password = "Sup3rS3cret!"
 api_key  = "sk-1234567890abcdef1234567890abcdef"
@@ -46,25 +46,25 @@ PAYMENT_GATEWAY_URL = "http://payments.example.com/charge"
 CARD_VAULT_URL      = "http://vault.internal/tokenise"
 
 # ── Rule 8.6.1 (High) ─────────────────────────────────────────────────────────
-# Regex hits: hashlib.md5, hashlib.sha1
+# Regex triggers: broken digest algorithm calls used on credential data.
 
 
 def hash_password_md5(raw: str) -> str:
-    return hashlib.md5(raw.encode()).hexdigest()        # MD5 — broken
+    return hashlib.md5(raw.encode()).hexdigest()        # broken — collision-vulnerable
 
 
 def hash_password_sha1(raw: str) -> str:
-    return hashlib.sha1(raw.encode()).hexdigest()       # SHA-1 — broken
+    return hashlib.sha1(raw.encode()).hexdigest()       # broken — collision-vulnerable
 
 
 # ── Rule 12.3.3 (High) ────────────────────────────────────────────────────────
-# Regex hits: 'RC4', '3DES', 'ARC4' in import statement and string literal
+# Regex triggers: deprecated symmetric cipher names in import and config string.
 
-from Crypto.Cipher import DES3, ARC4                   # weak cipher imports
-CIPHER_SUITE = "RC4-SHA"                               # RC4 cipher suite configured
+from Crypto.Cipher import DES3, ARC4                   # deprecated cipher imports
+CIPHER_SUITE = "RC4-SHA"                               # deprecated cipher suite configured
 
 # ── Rule 4.2.1.1 (Medium) ─────────────────────────────────────────────────────
-# Regex hit: verify=False
+# Regex trigger: certificate validation disabled in outbound HTTPS call.
 
 
 def post_payment(payload: dict) -> requests.Response:
@@ -72,7 +72,7 @@ def post_payment(payload: dict) -> requests.Response:
 
 
 # ── Rule 8.3.6 (High) ─────────────────────────────────────────────────────────
-# Regex hit: MIN_PASSWORD_LENGTH = 8  (< 12, below PCI minimum)
+# Regex trigger: minimum length constant set below the PCI-required 12 characters.
 
 MIN_PASSWORD_LENGTH = 8
 
@@ -82,7 +82,7 @@ def validate_password(pwd: str) -> bool:
 
 
 # ── Rule 6.2.4 (High) ─────────────────────────────────────────────────────────
-# Regex hits: execute("..." + user_input), eval(expr)
+# Regex triggers: string-concatenated query (injection risk) and unconstrained eval.
 
 
 def get_card_by_id(conn: sqlite3.Connection, user_input: str) -> list:
