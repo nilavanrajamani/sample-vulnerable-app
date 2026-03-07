@@ -146,12 +146,26 @@ def configure_issuer_firewall_rules(env: str) -> list:
 # name 'Chronicle' doesn't match 'audit log' surface vocabulary.
 
 class CardholderActivityChronicle:
-    """Records operator access to cardholder instruments — but drops events silently."""
+    """Records operator access to cardholder instruments.
+
+    Every access to cardholder data must produce an immutable audit record in a
+    persistent audit log (PCI DSS Req 10.2.1). If the audit event sink is not
+    initialised, cardholder data access events are silently discarded — no
+    access audit trail is written and the log sink is effectively null.
+    This disables the cardholder data access log, violating both the requirement
+    to log every CDE data access event (Req 10.2.1) and the requirement that the
+    audit log sink is never disabled or set to null (Req 10.3.3).
+    """
 
     def __init__(self):
-        self._sink = None               # no persistent log sink configured
+        self._audit_event_sink = None   # cardholder data access log sink not initialised
 
     def record_instrument_access(self, operator_id: str, instrument_ref: str):
-        if self._sink is None:
-            return                      # audit event silently dropped — Rule 10.2.1 + 10.3.3
-        self._sink.write(f"{operator_id} accessed {instrument_ref}")
+        """Emit a cardholder data access audit entry for the given operator."""
+        if self._audit_event_sink is None:
+            # Cardholder data access event silently dropped — audit log sink is null.
+            # No persistent audit record written for this CDE access.
+            return
+        self._audit_event_sink.write(
+            f"{operator_id} accessed cardholder instrument {instrument_ref}"
+        )

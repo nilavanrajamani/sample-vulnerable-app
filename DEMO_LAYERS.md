@@ -187,15 +187,18 @@ Every keyword is deliberately abstracted: no `http://` URL (scheme is
 assembled at runtime), no `hashlib.md5` call, no `0.0.0.0/0` string, no
 `NullHandler` class reference anywhere in this file.
 
-**Expected AI findings (5 chunks → 5 rules, `source=ai`):**
+**Expected AI findings (5 chunks → 6+ rules, `source=ai`):**
 
-| Chunk | Domain vocabulary used | Closest rule (with embeddings) | Without embeddings |
-|-------|------------------------|--------------------------------|--------------------|
-| 1 — `MagneticStripeReader` | "magnetic flux data", "chip code", "flux_record_one" | **3.3.1** SAD / track data retention | May cite 3.5.1 (card at rest) |
-| 2 — `DataEncryptionKeyManager` | "symmetric cipher material", "key schedule", "master cipher" | **3.7.1** Cryptographic key lifecycle | May cite 8.6.2 (hardcoded password) |
-| 3 — `PaymentGatewayClient` | "financial instrument", "acquirer", `_scheme = "http"` | **4.2.1** Strong crypto in transit | Likely correct but token-heavy |
-| 4 — `configure_issuer_firewall_rules` | "issuer boundary", "any-any ingress", `"protocol": "*"` | **1.3.2** Restrict inbound to CDE | May cite 1.2.x generic network |
-| 5 — `CardholderActivityChronicle` | "cardholder activity chronicle", `_sink = None` | **10.2.1 + 10.3.3** Audit log | May omit 10.3.3 without retriever |
+The embeddings retriever focuses the AI on the dominant rule per chunk. Additional
+related rules may be returned depending on model temperature and chunk content.
+
+| Chunk | Domain vocabulary used | Primary rule (with embeddings) | Secondary rules | Without embeddings |
+|-------|------------------------|--------------------------------|---|--------------------|
+| 1 — `MagneticStripeReader` | "magnetic flux data", "chip code", "flux_record_one" | **3.3.1** SAD / track data retention | 3.5.1 (PAN at rest) | May cite only 3.5.1 |
+| 2 — `DataEncryptionKeyManager` | "symmetric cipher material", "key schedule", "master cipher" | **3.7.1** Cryptographic key lifecycle | 6.2.4 (insecure KDF) | May cite 8.6.2 (hardcoded password) |
+| 3 — `PaymentGatewayClient` | "financial instrument", "acquirer", `_scheme = "http"` | **4.2.1** Strong crypto in transit | — | Likely correct but token-heavy |
+| 4 — `configure_issuer_firewall_rules` | "issuer boundary", "any-any ingress", `"protocol": "*"` | **1.3.2** Restrict inbound to CDE | — | May cite 1.2.x generic network |
+| 5 — `CardholderActivityChronicle` | "cardholder data access events", "persistent audit log", "audit event sink" | **10.2.1** Audit log for every access | **10.3.3** Audit sink must not be null | May omit both without retriever |
 
 ---
 
@@ -235,23 +238,23 @@ semantically similar pair is the correct citation.
 
 | Line | Rule | Severity | Snippet |
 |------|------|----------|---------|
-| 67 | 3.7.1 | HIGH | `hardcoded_aes_key = bytes.fromhex(...)` |
-| 75 | 3.7.1 | HIGH | `cipher = AES.new(self.hardcoded_aes_key, ...)` |
-| 95 | 8.6.2 | CRITICAL | `SMTP_PASSWORD = "EmailS3nd3r!"` |
-| 151 | 10.3.3 | MEDIUM | `root.addHandler(logging.NullHandler())` |
-| 204 | 2.2.1 | HIGH | `class LegacyCryptoAdapter:` |
-| 218 | 12.3.3 | HIGH | `ALGORITHM = "3DES"` |
-| 226 | 2.2.1 | HIGH | `class LegacyTerminalNetwork:` |
-| 241 | 4.2.1 | CRITICAL | `TLS_VERSION = ssl.PROTOCOL_TLSv1` |
-| 245 | 4.2.1 | CRITICAL | `ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)` |
-| 246 | 12.3.3 | HIGH | `ctx.set_ciphers("RC4-SHA")` |
+| 83 | 3.7.1 | HIGH | `hardcoded_aes_key = bytes.fromhex(...)` |
+| 91 | 3.7.1 | HIGH | `cipher = AES.new(self.hardcoded_aes_key, ...)` |
+| 111 | 8.6.2 | CRITICAL | `SMTP_PASSWORD = "EmailS3nd3r!"` |
+| 167 | 10.3.3 | MEDIUM | `root.addHandler(logging.NullHandler())` |
+| 220 | 2.2.1 | HIGH | `class LegacyCryptoAdapter:` |
+| 234 | 12.3.3 | HIGH | `ALGORITHM = "3DES"` |
+| 242 | 2.2.1 | HIGH | `class LegacyTerminalNetwork:` |
+| 257 | 4.2.1 | CRITICAL | `TLS_VERSION = ssl.PROTOCOL_TLSv1` |
+| 261 | 4.2.1 | CRITICAL | `ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)` |
+| 262 | 12.3.3 | HIGH | `ctx.set_ciphers("RC4-SHA")` |
 
 **Rule pairs disambiguated by Azure Search (expected AI findings):**
 
 | Pair | Correct rule | Confused with | Azure Search signal | Violation |
 |------|-------------|---------------|--------------------|-|
 | 1 | **3.7.1** | 8.6.2 | Category "Protect Stored Account Data" | `hardcoded_aes_key` — cryptographic key material (not just a password) in `CardVaultEncryption` |
-| 1 | **8.6.2** | 3.7.1 | Category "Strong Authentication" | `SMTP_PASSWORD` — application credential (not crypto key) in `AppConfigLoader` |
+| 1 | **8.6.1** | 3.7.1 | Category "Strong Authentication" | `SMTP_PASSWORD` — application credential (not crypto key) in `AppConfigLoader` |
 | 2 | **10.2.1** | 10.3.3 | BM25 "cardholder data access" + category "Log and Monitor" | `CardDataService.get_card_details_for_refund` never emits audit call |
 | 2 | **10.3.3** | 10.2.1 | BM25 "null-sink / log-stack" + category "Log and Monitor" | `LoggingBootstrap.configure` installs `NullHandler` at root |
 | 3 | **7.2.1** | 8.4.2 | Category "Restrict Access to Cardholder Data" | `get_cardholder_data_endpoint` — no role check (authorisation) |
