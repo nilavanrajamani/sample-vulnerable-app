@@ -40,7 +40,19 @@ python app.py
 To test the pci-auditor tool on this application:
 
 ```bash
-pci-auditor scan codebase --path /path/to/sample-vulnerable-app
+# Pattern-only scan (no AI, instant, offline)
+pci-auditor scan codebase --path /path/to/sample-vulnerable-app --detection-mode pattern
+
+# AI scan (requires Azure OpenAI credentials)
+pci-auditor scan codebase --path /path/to/sample-vulnerable-app --detection-mode ai
+
+# AI + local cosine-similarity RAG (build index first)
+pci-auditor rules index-build
+pci-auditor scan codebase --path /path/to/sample-vulnerable-app --detection-mode embeddings
+
+# AI + Azure AI Search RAG (build cloud index first)
+pci-auditor rules index-build --backend azure-search
+pci-auditor scan codebase --path /path/to/sample-vulnerable-app --detection-mode azure-search
 ```
 
-This should detect numerous violations across all the files.
+See [DEMO_LAYERS.md](DEMO_LAYERS.md) for the full layered demo with expected findings per mode.
