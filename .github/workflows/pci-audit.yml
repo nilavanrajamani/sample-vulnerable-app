@@ -74,4 +74,5 @@ jobs:
       output_file: ${{ github.event.inputs.output_file || 'pci-results.sarif' }}
       fail_on: ${{ github.event.inputs.fail_on || 'critical,high' }}
       no_ai: ${{ fromJSON(github.event.inputs.no_ai || 'false') }}
+      base_branch: ${{ github.event.pull_request.base.ref || 'main' }}
     secrets: inherit
