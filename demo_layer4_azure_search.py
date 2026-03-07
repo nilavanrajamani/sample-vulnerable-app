@@ -64,15 +64,15 @@ class CardVaultEncryption:
     Implement a key rotation schedule and wrap keys with a KEK.
     """
 
-    _AES_KEY = bytes.fromhex(
+    hardcoded_aes_key = bytes.fromhex(
         "000102030405060708090a0b0c0d0e0f"
         "101112131415161718191a1b1c1d1e1f"
-    )                                               # hardcoded 256-bit key ← Rule 3.7.1
+    )                                               # ← Rule 3.7.1
     _IV = bytes.fromhex("00000000000000000000000000000000")  # fixed IV, never rotated
 
     def encrypt_payload(self, data: str) -> bytes:
         from Crypto.Cipher import AES
-        cipher = AES.new(self._AES_KEY, AES.MODE_CBC, self._IV)
+        cipher = AES.new(self.hardcoded_aes_key, AES.MODE_CBC, self._IV)
         padded = data.ljust(16).encode()
         return cipher.encrypt(padded)
 
