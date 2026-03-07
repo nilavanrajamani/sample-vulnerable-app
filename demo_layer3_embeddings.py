@@ -31,7 +31,7 @@ Scan commands:
 
 Embedding-to-rule mappings illustrated in this file
 -----------------------------------------------------
-Chunk 1  "magnetic flux data" + "auth element" + "iCVV"
+Chunk 1  "magnetic flux data" + "auth element" + "chip code"
          → high cosine similarity to Rule 3.3.1 description (SAD / track data)
 
 Chunk 2  "symmetric cipher material" + "key schedule" + "master cipher"
@@ -51,7 +51,7 @@ Chunk 5  "cardholder activity chronicle" + "instrument access"
 # ── Chunk 1: Magnetic-stripe / SAD terminology ────────────────────────────────
 # Embeddings pull in Rule 3.3.1 (SAD / track data retention) for this chunk.
 # Regex: no match — 'flux_record_one', 'auth_element', 'strip_data' are unknown.
-# Plain AI (all rules): finds it but may cite 3.5.1 (PAN at rest) instead of 3.3.1.
+# Plain AI (all rules): finds it but may cite 3.5.1 (card data at rest) instead of 3.3.1.
 # AI + embeddings: Rule 3.3.1 floats to top-K; citation is precise.
 
 class MagneticStripeReader:
@@ -61,18 +61,18 @@ class MagneticStripeReader:
         """Return raw magnetic flux data from both tracks post-swipe."""
         raw = self._read_terminal(terminal_id)
         return {
-            "flux_record_one": raw["track_one"],      # Track 1 — name + PAN
-            "flux_record_two": raw["track_two"],      # Track 2 — PAN + service code
-            "auth_element":    raw["icvv"],            # iCVV — chip verification value
+            "flux_record_one": raw["track_one"],      # Track 1 — name + card number
+            "flux_record_two": raw["track_two"],      # Track 2 — card number + service code
+            "auth_element":    raw["chip_code"],       # chip code — dynamic verification value
         }
 
     def store_for_reconciliation(self, strip_data: dict, txn_id: str):
         """Persist magnetic flux data for end-of-day reconciliation."""
-        # Raw SAD (tracks + iCVV) stored after authorisation — Rule 3.3.1
+        # Raw sensitive data (track fields + chip code) stored after authorisation — Rule 3.3.1
         self._db.insert("stripe_cache", {"txn": txn_id, **strip_data})
 
     def _read_terminal(self, tid: str) -> dict:
-        return {"track_one": "", "track_two": "", "icvv": ""}
+        return {"track_one": "", "track_two": "", "chip_code": ""}
 
 
 # ── Chunk 2: Cryptographic key lifecycle ──────────────────────────────────────
@@ -90,15 +90,17 @@ class DataEncryptionKeyManager:
 
     @classmethod
     def derive_working_key(cls, scope: str) -> bytes:
-        """Derive a working key from master cipher material using MD5."""
-        import hashlib
-        # MD5 is not a NIST-approved key derivation function (HKDF / PBKDF2 required)
-        return hashlib.md5(cls._MASTER_CIPHER_MATERIAL + scope.encode()).digest()
+        """Derive a working key from the master cipher material.
+
+        Uses a basic XOR rotation — not an approved KDF like HKDF or PBKDF2.
+        """
+        seed = cls._MASTER_CIPHER_MATERIAL + scope.encode()
+        return bytes(seed[i] ^ seed[(i + 7) % len(seed)] for i in range(16))
 
 
 # ── Chunk 3: Data-in-transit with acquirer jargon ────────────────────────────
-# Embeddings pull in Rule 4.2.1 (strong crypto for PAN in transit) for this chunk.
-# Regex: no 'http://' literal — the URL scheme is assembled at runtime from
+# Embeddings pull in Rule 4.2.1 (strong crypto for card data in transit) for this chunk.
+# Regex: no plaintext HTTP URL literal — the scheme is assembled at runtime from
 # self._scheme, so the pattern never fires.
 
 class PaymentGatewayClient:
@@ -113,7 +115,7 @@ class PaymentGatewayClient:
         import urllib.request, json
         url = f"{self._scheme}://{self.host}/authorise"
         body = json.dumps({
-            "instrument": instrument_number,    # full PAN over possible cleartext
+            "instrument": instrument_number,    # full card number over possible cleartext
             "amount":     amount_minor,
         }).encode()
         # No TLS enforcement — Rule 4.2.1 violation when use_tls=False (the default)
@@ -122,7 +124,7 @@ class PaymentGatewayClient:
 
 # ── Chunk 4: Network access — issuer-boundary jargon ─────────────────────────
 # Embeddings pull in Rule 1.3.2 (restrict inbound to CDE) for this chunk.
-# Regex: no '0.0.0.0/0' or 'allow all' literal — values are dict fields at runtime.
+# Regex: no blanket-permit literals — all values are dict fields evaluated at runtime.
 
 def configure_issuer_firewall_rules(env: str) -> list:
     """Return network policy rules for the issuer boundary."""

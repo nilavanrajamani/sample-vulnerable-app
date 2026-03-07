@@ -15,10 +15,10 @@ Rule 3.3.1  CRITICAL  — raw card number literal and SAD variable names
 Rule 8.6.2  CRITICAL  — hardcoded application credentials in source
 Rule 4.2.1  CRITICAL  — plaintext HTTP endpoint URL
 Rule 8.6.1  HIGH      — weak password hashing (broken digest algorithms)
-Rule 12.3.3 HIGH      — deprecated symmetric cipher algorithms
+Rule 12.3.3 HIGH      — retired cipher algorithms
 Rule 4.2.1.1 MEDIUM   — TLS certificate validation disabled
 Rule 8.3.6  HIGH      — password minimum length below PCI requirement
-Rule 6.2.4  HIGH      — string-concatenation query (injection) and eval()
+Rule 6.2.4  HIGH      — string-concatenation query (injection) and eval expressions
 """
 
 import hashlib
@@ -35,12 +35,12 @@ cvv = "737"                                       # security code — SAD
 # ── Rule 8.6.2 (Critical) ─────────────────────────────────────────────────────
 # Regex triggers: credential assignments with literal string values.
 
-password = "Sup3rS3cret!"
-api_key  = "sk-1234567890abcdef1234567890abcdef"
-DB_PASSWORD = "postgres_admin_2024"
+password = "Sup3rS3cret!"                            # ggignore
+api_key  = "sk-1234567890abcdef1234567890abcdef"      # ggignore
+DB_PASSWORD = "postgres_admin_2024"                   # ggignore
 
 # ── Rule 4.2.1 (Critical) ─────────────────────────────────────────────────────
-# Regex hits: literal 'http://' URLs
+# Regex triggers: plaintext HTTP endpoint URL.
 
 PAYMENT_GATEWAY_URL = "http://payments.example.com/charge"
 CARD_VAULT_URL      = "http://vault.internal/tokenise"
@@ -58,7 +58,7 @@ def hash_password_sha1(raw: str) -> str:
 
 
 # ── Rule 12.3.3 (High) ────────────────────────────────────────────────────────
-# Regex triggers: deprecated symmetric cipher names in import and config string.
+# Regex triggers: retired cipher names in import and config string.
 
 from Crypto.Cipher import DES3, ARC4                   # deprecated cipher imports
 CIPHER_SUITE = "RC4-SHA"                               # deprecated cipher suite configured

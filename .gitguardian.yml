@@ -1,0 +1,22 @@
+version: 2
+
+# ─────────────────────────────────────────────────────────────────────────────
+# This repository is an intentionally vulnerable demo application.
+#
+# Secret and compliance scanning is handled by PCI Auditor:
+#   https://github.com/nilavanrajamani/pci-auditor
+#
+# PCI Auditor goes beyond generic secret detection — it detects PCI DSS 4.0
+# violations in application logic, cryptographic usage, access control,
+# audit logging, and network configuration using both regex pattern matching
+# and Azure OpenAI analysis.
+#
+# Demo credentials in this repository are intentional violations for
+# demonstration purposes. Each secret line is annotated with:
+#   # pragma: allowlist secret
+# ─────────────────────────────────────────────────────────────────────────────
+
+secret-detection:
+  # All intentional demo secrets are individually annotated with
+  # "# pragma: allowlist secret" — no paths are globally excluded.
+  ignored-paths: []

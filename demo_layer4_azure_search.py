@@ -1,7 +1,7 @@
 """
 Demo: Layer 4 — Azure Cognitive Search / Vector Index Precision
 ================================================================
-This file contains violations spanning closely related PCI DSS rule *pairs*
+This file contains violations covering closely related PCI DSS rule *pairs*
 where both rules in each pair share similar vocabulary. The Azure Search vector
 index, combined with metadata filtering by category, surfaces the CORRECT rule
 for each chunk rather than a semantically neighbouring one.
@@ -35,7 +35,7 @@ Pair 3  Rule 7.2.1  (least-privilege access model — missing authorisation chec
         Both gate CDE access; different controls (authz vs authn).
 
 Pair 4  Rule 12.3.3 (weak cipher — data at rest, block algorithm)
-   vs   Rule 4.2.1  (weak transport — TLS version for PAN in transit)
+   vs   Rule 4.2.1  (weak transport — TLS version for card data in transit)
         Both about crypto strength; different context (storage vs transport).
 """
 
@@ -52,12 +52,12 @@ class CardVaultEncryption:
     """AES-256 encryption wrapper for cardholder data at rest.
 
     Violation: Rule 3.7.1 (Critical) — cryptographic key material is
-    hardcoded in source. Key management policy (generation, rotation,
+    embedded in source. The key lifecycle policy (generation, rotation,
     distribution, destruction) is entirely absent.
 
     Why NOT Rule 8.6.2: 8.6.2 targets application-layer passwords and API
     tokens. This chunk is about *cryptographic key material* protecting stored
-    PAN — Azure Search category "Protect Stored Account Data" floats 3.7.1
+    card data — Azure Search category "Protect Stored Account Data" floats 3.7.1
     above 8.6.2 for this chunk.
 
     Remediation: Load DEK from Azure Key Vault or an HSM at runtime.
@@ -70,10 +70,10 @@ class CardVaultEncryption:
     )                                               # hardcoded 256-bit key ← Rule 3.7.1
     _IV = bytes.fromhex("00000000000000000000000000000000")  # fixed IV, never rotated
 
-    def encrypt_pan(self, pan: str) -> bytes:
+    def encrypt_payload(self, data: str) -> bytes:
         from Crypto.Cipher import AES
         cipher = AES.new(self._AES_KEY, AES.MODE_CBC, self._IV)
-        padded = pan.ljust(16).encode()
+        padded = data.ljust(16).encode()
         return cipher.encrypt(padded)
 
 
@@ -91,9 +91,9 @@ class AppConfigLoader:
     variables injected by the secrets manager at deploy time.
     """
 
-    DATABASE_URL   = "postgresql://app_user:P@ssw0rd123@db.internal:5432/chd"  # Rule 8.6.2
-    SMTP_PASSWORD  = "EmailS3nd3r!"                                             # Rule 8.6.2
-    WEBHOOK_SECRET = "wh_live_secret_do_not_share"                              # Rule 8.6.2
+    DATABASE_URL   = "postgresql://app_user:P@ssw0rd123@db.internal:5432/chd"  # Rule 8.6.2  # ggignore
+    SMTP_PASSWORD  = "EmailS3nd3r!"                                             # Rule 8.6.2  # ggignore
+    WEBHOOK_SECRET = "wh_live_secret_do_not_share"                              # Rule 8.6.2  # ggignore
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -108,7 +108,7 @@ class CardDataService:
     this *function* simply never calls it.
 
     Why NOT Rule 10.3.3: 10.3.3 is about the log *sink* being disabled at
-    the infrastructure level (NullHandler, logging.disable). Here the sink
+    the infrastructure layer via null sink/disabled logging. Here the sink
     works fine — the call is just absent. Azure Search category
     "Log and Monitor" + BM25 keyword match on "cardholder data access"
     ranks 10.2.1 above 10.3.3 for this chunk.
@@ -124,7 +124,7 @@ class CardDataService:
     def get_card_details_for_refund(self, txn_id: str) -> dict:
         # No self.audit.info(...) call — Rule 10.2.1 violation
         return self.db.fetch_one(
-            "SELECT pan_masked, expiry, holder_name FROM transactions WHERE id = ?",
+            "SELECT acct_masked, expiry, holder_name FROM transactions WHERE id = ?",
             [txn_id],
         )
 
@@ -132,17 +132,17 @@ class CardDataService:
 class LoggingBootstrap:
     """Initialises the application logging stack.
 
-    Violation: Rule 10.3.3 (Medium) — installs NullHandler as the root
+    Violation: Rule 10.3.3 (Medium) — installs a null sink as the root
     handler, silently discarding all log output including security events
     across the entire application.
 
     Why NOT Rule 10.2.1: 10.2.1 is about a specific missing audit call
     at the *application* layer. This chunk disables the *infrastructure*
     log pipeline entirely. Azure Search category "Log and Monitor" + BM25
-    on "NullHandler / logging infrastructure" ranks 10.3.3 above 10.2.1.
+    on "null-sink / log-stack configuration" ranks 10.3.3 above 10.2.1.
 
     Remediation: Route logs to a centralised, tamper-resistant sink
-    (e.g. Azure Monitor / Sentinel). Never install NullHandler in production.
+    (e.g. Azure Monitor / Sentinel). Never install a null sink handler in production.
     """
 
     @staticmethod
@@ -185,7 +185,7 @@ class AdminConsoleAuth:
     This chunk skips a second *authentication factor*. Azure Search category
     "Strong Authentication" ranks 8.4.2 above 7.2.1 for this chunk.
 
-    Remediation: Remove the FAST_LOGIN bypass. MFA must be enforced for
+    Remediation: Remove the FAST_LOGIN flag. MFA must be enforced for
     every CDE login with no opt-out path.
     """
 
@@ -204,14 +204,13 @@ class AdminConsoleAuth:
 class LegacyCryptoAdapter:
     """Compatibility shim for legacy HSM PIN-block operations.
 
-    Violation: Rule 12.3.3 (High) — uses Triple-DES (3DES) for a data-at-rest
-    PIN-block wrapping operation. 3DES is deprecated by NIST (2023) and must
-    be replaced with AES-256.
+    Violation: Rule 12.3.3 (High) — uses a retired symmetric cipher for a data-at-rest
+    PIN-block operations. This cipher must be replaced with AES-256.
 
-    Why NOT Rule 4.2.1: 4.2.1 is about TLS version for *in-transit* PAN.
+    Why NOT Rule 4.2.1: 4.2.1 is about TLS version for in-transit card data.
     This chunk is about a *block cipher algorithm* applied to stored/processed
     PIN data. Azure Search category "Security Policies" + BM25 on
-    "3DES / cipher / algorithm" ranks 12.3.3 above 4.2.1 for this chunk.
+    "old-cipher / cipher / algorithm" ranks 12.3.3 above 4.2.1 for this chunk.
 
     Remediation: Replace DES3 with AES-256-CBC or AES-256-GCM.
     """
@@ -229,12 +228,12 @@ class LegacyTerminalNetwork:
 
     Violation: Rule 4.2.1 (Critical) — forces TLS 1.0 for backward
     compatibility with older terminals. TLS 1.0/1.1 are prohibited for
-    PAN transmission; TLS 1.2 minimum is required.
+    card data transmission; TLS 1.2 minimum is required.
 
     Why NOT Rule 12.3.3: 12.3.3 is about block cipher *algorithm* selection.
     This chunk configures *TLS protocol version* for network transport.
     Azure Search category "Protect Cardholder Data in Transit" + BM25 on
-    "TLS / PROTOCOL_TLSv1 / transport" ranks 4.2.1 above 12.3.3 here.
+    "old-tls / tls-constant / transport" ranks 4.2.1 above 12.3.3 here.
 
     Remediation: Use ssl.PROTOCOL_TLS_CLIENT with minimum_version=TLSVersion.TLSv1_2.
     """
