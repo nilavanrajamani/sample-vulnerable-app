@@ -1,18 +1,19 @@
 # PCI DSS 4.0 Compliance Audit — Caller Workflow
 #
-# This workflow calls the reusable scan workflow from pci-auditor repository.
-# All secrets are inherited from the pci-auditor repository.
+# Triggers on pull requests to main/develop and on manual dispatch.
+# Calls the reusable scan workflow from the pci-auditor repository.
 #
-# This target repository NO LONGER needs its own Azure credentials.
-# It simply inherits them from pci-auditor via 'secrets: inherit'.
+# IMPORTANT — 'secrets: inherit' forwards secrets from THIS repository
+# (sample-vulnerable-app), not from the pci-auditor repository.
+# Declare the following as repository secrets (or organisation secrets
+# accessible to this repo) in sample-vulnerable-app:
+#   AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_DEPLOYMENT,
+#   AZURE_OPENAI_API_VERSION, AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+#   AZURE_SEARCH_ENDPOINT, AZURE_SEARCH_API_KEY, AZURE_SEARCH_INDEX_NAME
 
 name: PCI DSS Compliance Audit
 
 on:
-  push:
-    branches:
-      - main
-      - develop
   pull_request:
     branches:
       - main
@@ -62,10 +63,10 @@ jobs:
     name: Run PCI DSS Audit
     uses: nilavanrajamani/pci-auditor/.github/workflows/pci-scan-reusable.yml@main
     with:
-      scan_type: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.scan_type || 'codebase' }}
-      path: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.path || '.' }}
-      output_format: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.output_format || 'sarif' }}
-      output_file: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.output_file || 'pci-results.sarif' }}
-      fail_on: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.fail_on || 'critical,high' }}
-      no_ai: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.no_ai || false }}
+      scan_type: ${{ github.event_name == 'pull_request' && 'pr' || github.event.inputs.scan_type || 'codebase' }}
+      path: ${{ github.event.inputs.path || '.' }}
+      output_format: ${{ github.event.inputs.output_format || 'sarif' }}
+      output_file: ${{ github.event.inputs.output_file || 'pci-results.sarif' }}
+      fail_on: ${{ github.event.inputs.fail_on || 'critical,high' }}
+      no_ai: ${{ fromJSON(github.event.inputs.no_ai || 'false') }}
     secrets: inherit
