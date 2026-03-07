@@ -58,6 +58,11 @@ on:
         default: false
         type: boolean
 
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
 jobs:
   scan:
     name: Run PCI DSS Audit
