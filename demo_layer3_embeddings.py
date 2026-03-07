@@ -22,12 +22,12 @@ With text embeddings (retriever active):
   • GPT sees focused, high-signal context → higher-confidence rule citations.
 
 Scan commands:
-  # AI without embeddings (AZURE_OPENAI_EMBEDDING_DEPLOYMENT unset):
-  pci-auditor scan pr --repo-path . --base-branch origin/main
+  # AI without embeddings (forces full rule injection per chunk):
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode ai
 
-  # AI WITH embeddings (full config in .env):
-  pci-auditor scan pr --repo-path . --base-branch origin/main
-  (embedding deployment must be set — see pci-auditor README)
+  # AI WITH local text embeddings (top-K rule selection per chunk):
+  pci-auditor rules index-build --backend local   # one-time setup
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode embeddings
 
 Embedding-to-rule mappings illustrated in this file
 -----------------------------------------------------

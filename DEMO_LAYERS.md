@@ -6,18 +6,51 @@ detection layer matters** and provides the concrete findings produced by each.
 
 ---
 
+## `--detection-mode` flag
+
+Each detection layer is now explicitly selectable via `--detection-mode`:
+
+```
+--detection-mode [pattern|ai|embeddings|azure-search]
+```
+
+| Value | What runs | When to use |
+|-------|-----------|-------------|
+| `pattern` | Regex / keyword rules only | CI fast-path, no Azure costs |
+| `ai` | Regex + Azure OpenAI model | Intent-level violations, no index needed |
+| `embeddings` | Regex + AI + local text-embedding retriever | Domain jargon, run `rules index-build` first |
+| `azure-search` | Regex + AI + Azure Cognitive Search | Rule-pair disambiguation, highest precision |
+
+The mode is printed at the top of every scan so there is no ambiguity about
+which layers are active:
+
+```
+Detection mode: pattern — Regex/keyword rules only — no AI
+Detection mode: ai — Regex + Azure OpenAI model
+Detection mode: embeddings — Regex + AI + local embedding retriever
+Detection mode: azure-search — Regex + AI + Azure Cognitive Search
+```
+
+> `--no-ai` is kept as a shorthand for `--detection-mode pattern`.
+
+---
+
 ## How to run the scans yourself
 
 ```bash
-# Pattern-only (no AI, no embeddings)
-pci-auditor scan pr --repo-path . --base-branch origin/main --no-ai
+# Layer 1 — regex only
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode pattern
 
-# AI model only (no embedding retriever)
-pci-auditor scan pr --repo-path . --base-branch origin/main
+# Layer 2 — AI model (no embeddings)
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode ai
 
-# Full stack: AI + Azure Search vector index
-pci-auditor scan pr --repo-path . --base-branch origin/main
-# (requires AZURE_OPENAI_EMBEDDING_DEPLOYMENT and AZURE_SEARCH_* env vars)
+# Layer 3 — AI + local text-embedding retriever  (build index first)
+pci-auditor rules index-build --backend local
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode embeddings
+
+# Layer 4 — AI + Azure Cognitive Search  (requires full Azure Search config)
+pci-auditor rules index-build --backend azure-search
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode azure-search
 ```
 
 ---
@@ -35,7 +68,10 @@ pci-auditor scan pr --repo-path . --base-branch origin/main
 
 ## Layer 1 — Regex Pattern Detection (`demo_layer1_regex.py`)
 
-**Scan command:** `pci-auditor scan pr --repo-path . --base-branch origin/main --no-ai`
+**Scan command:**
+```bash
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode pattern
+```
 
 **Why this layer matters:**  
 The cheapest and fastest detection stage. A library of regular expressions
@@ -71,10 +107,10 @@ credential assignments, deprecated import names, and insecure API calls.
 
 ```bash
 # Should produce 0 findings — regex cannot see these violations:
-pci-auditor scan pr --repo-path . --base-branch origin/main --no-ai
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode pattern
 
 # Should produce 6 findings — AI infers intent from context:
-pci-auditor scan pr --repo-path . --base-branch origin/main
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode ai
 ```
 
 **Why this layer matters:**  
@@ -118,14 +154,14 @@ in every `code_indicator` entry. The violations are:
 
 ```bash
 # 0 findings — no regex matches:
-pci-auditor scan pr --repo-path . --base-branch origin/main --no-ai
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode pattern
 
 # AI findings, but rule citations may be imprecise (all rules injected per chunk):
-pci-auditor scan pr --repo-path . --base-branch origin/main
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode ai
 
 # AI findings with precise citations (embedding retriever selects top-K rules per chunk):
-pci-auditor scan pr --repo-path . --base-branch origin/main
-# (AZURE_OPENAI_EMBEDDING_DEPLOYMENT must be configured)
+pci-auditor rules index-build --backend local  # one-time setup
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode embeddings
 ```
 
 **Why this layer matters:**  
@@ -169,14 +205,18 @@ assembled at runtime), no `hashlib.md5` call, no `0.0.0.0/0` string, no
 
 ```bash
 # Partial findings — regex catches the obvious symptoms:
-pci-auditor scan pr --repo-path . --base-branch origin/main --no-ai
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode pattern
 
 # AI findings present but rule disambiguation may be wrong for related pairs:
-pci-auditor scan pr --repo-path . --base-branch origin/main
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode ai
 
-# Correct rule cited for every pair:
-pci-auditor scan pr --repo-path . --base-branch origin/main
-# (full Azure Search config required)
+# AI findings present; embeddings improve precision but can still be ambiguous for pairs:
+pci-auditor rules index-build --backend local  # one-time setup
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode embeddings
+
+# Correct rule cited for every pair — Azure Search adds category-filtered ranking:
+pci-auditor rules index-build --backend azure-search  # one-time setup
+pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode azure-search
 ```
 
 **Why this layer matters:**  

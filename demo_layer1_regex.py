@@ -5,7 +5,7 @@ These violations are caught purely by keyword and regex pattern matching.
 No AI is needed — every finding is produced by a code_indicator rule.
 
 Scan command (pattern-only):
-  pci-auditor scan pr --repo-path . --base-branch origin/main --no-ai
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode pattern
 
 Expected: All violations found with source=pattern
 

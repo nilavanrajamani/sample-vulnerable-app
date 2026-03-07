@@ -7,10 +7,10 @@ logic, and the *intent* of the code — not just keyword presence.
 
 Scan commands:
   # No findings — patterns don't recognise these variable names / structures:
-  pci-auditor scan pr --repo-path . --base-branch origin/main --no-ai
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode pattern
 
   # Findings appear — AI reads the code and infers the violations:
-  pci-auditor scan pr --repo-path . --base-branch origin/main
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode ai
 
 Why regex misses these
 -----------------------

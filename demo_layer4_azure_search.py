@@ -37,6 +37,22 @@ Pair 3  Rule 7.2.1  (least-privilege access model — missing authorisation chec
 Pair 4  Rule 12.3.3 (weak cipher — data at rest, block algorithm)
    vs   Rule 4.2.1  (weak transport — TLS version for card data in transit)
         Both about crypto strength; different context (storage vs transport).
+
+Scan commands
+--------------
+  # Regex pattern matching only (partial — literal symptoms caught):
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode pattern
+
+  # AI model, no embedding retriever (full rule injection — pairs may be ambiguous):
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode ai
+
+  # AI + local embeddings (nearest-neighbour — still ambiguous for closely related pairs):
+  pci-auditor rules index-build --backend local
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode embeddings
+
+  # AI + Azure Cognitive Search (hybrid BM25 + vector + category filter — highest precision):
+  pci-auditor rules index-build --backend azure-search
+  pci-auditor scan pr --repo-path . --base-branch origin/main --detection-mode azure-search
 """
 
 import os
