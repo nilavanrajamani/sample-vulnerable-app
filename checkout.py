@@ -24,8 +24,8 @@ DB_HOST = "db.internal.example.com"
 DB_USER = "admin"
 DB_PASSWORD = "Sup3rS3cr3t!"
 
-# Rule 8.6.1 — hardcoded payment gateway API key (placeholder — real key must never be hardcoded)
-PAYMENT_GW_API_KEY = "sk_live_REPLACE_WITH_REAL_KEY_BEFORE_DEPLOYMENT_1234567890abcdef"
+# Rule 8.6.1 — hardcoded payment gateway API key (must never be hardcoded in source)
+PAYMENT_GW_API_KEY = "hardcoded-api-key-violates-pci-dss-8.6.1"
 
 # Rule 3.5.1 — hardcoded AES key (should be in a key-management system)
 AES_KEY = "0123456789abcdef"
