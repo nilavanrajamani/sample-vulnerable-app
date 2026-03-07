@@ -25,7 +25,7 @@ DB_USER = "admin"
 DB_PASSWORD = "Sup3rS3cr3t!"
 
 # Rule 8.6.1 — hardcoded payment gateway API key (must never be hardcoded in source)
-PAYMENT_GW_API_KEY = "hardcoded-api-key-violates-pci-dss-8.6.1_123456789abcdef"
+PAYMENT_GW_API_KEY = "hardcoded-api-key-violates-pci-dss-8.6.1"
 
 # Rule 3.5.1 — hardcoded AES key (should be in a key-management system)
 AES_KEY = "0123456789abcdef"
