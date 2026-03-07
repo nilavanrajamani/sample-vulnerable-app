@@ -64,15 +64,23 @@ permissions:
   pull-requests: write
 
 jobs:
-  scan:
-    name: Run PCI DSS Audit
-    uses: nilavanrajamani/pci-auditor/.github/workflows/pci-scan-reusable.yml@main
+  pr-scan:
+    name: PCI DSS PR Scan
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.scan_type == 'pr')
+    uses: nilavanrajamani/pci-auditor/.github/workflows/pci-pr-scan.yml@main
     with:
-      scan_type: ${{ github.event_name == 'pull_request' && 'pr' || github.event.inputs.scan_type || 'codebase' }}
+      base_branch: ${{ github.event.pull_request.base.ref || 'main' }}
+      fail_on: ${{ github.event.inputs.fail_on || 'critical,high' }}
+    secrets: inherit
+
+  full-scan:
+    name: PCI DSS Full Codebase Scan
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.scan_type == 'codebase'
+    uses: nilavanrajamani/pci-auditor/.github/workflows/pci-full-scan.yml@main
+    with:
       path: ${{ github.event.inputs.path || '.' }}
       output_format: ${{ github.event.inputs.output_format || 'sarif' }}
       output_file: ${{ github.event.inputs.output_file || 'pci-results.sarif' }}
       fail_on: ${{ github.event.inputs.fail_on || 'critical,high' }}
       no_ai: ${{ fromJSON(github.event.inputs.no_ai || 'false') }}
-      base_branch: ${{ github.event.pull_request.base.ref || 'main' }}
     secrets: inherit
