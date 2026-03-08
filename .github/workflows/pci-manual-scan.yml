@@ -1,0 +1,59 @@
+# PCI DSS 4.0 Compliance Audit — Manual / Full Codebase Scan
+#
+# Triggered manually via workflow_dispatch to scan the full codebase.
+#
+# IMPORTANT — 'secrets: inherit' forwards secrets from THIS repository.
+# Required secrets: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY,
+#   AZURE_OPENAI_DEPLOYMENT, AZURE_OPENAI_API_VERSION
+
+name: PCI DSS Manual Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      path:
+        description: 'Path to scan (default: workspace root)'
+        required: false
+        default: '.'
+        type: string
+      output_format:
+        description: 'Output format'
+        required: false
+        default: 'sarif'
+        type: choice
+        options:
+          - console
+          - json
+          - sarif
+      output_file:
+        description: 'Output file path'
+        required: false
+        default: 'pci-results.sarif'
+        type: string
+      fail_on:
+        description: 'Severities to fail on (comma-separated)'
+        required: false
+        default: 'critical,high'
+        type: string
+      no_ai:
+        description: 'Disable AI analysis (pattern-only)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  full-scan:
+    name: PCI DSS Full Codebase Scan
+    uses: nilavanrajamani/pci-auditor/.github/workflows/pci-full-scan.yml@main
+    with:
+      path: ${{ github.event.inputs.path || '.' }}
+      output_format: ${{ github.event.inputs.output_format || 'sarif' }}
+      output_file: ${{ github.event.inputs.output_file || 'pci-results.sarif' }}
+      fail_on: ${{ github.event.inputs.fail_on || 'critical,high' }}
+      no_ai: ${{ fromJSON(github.event.inputs.no_ai || 'false') }}
+    secrets: inherit
