@@ -100,7 +100,7 @@ class CardholderRepository:
         self.audit = logging.getLogger("audit")
 
     def retrieve_for_dispute(self, dispute_id: str) -> dict:
-        """Fetch full cardholder record for dispute resolution."""
+        """Fetch full cardholder record for dispute resolution_1."""
         # PCI 10.2.1: an audit log event must be emitted here — it is not.
         row = self.db.query(
             "SELECT name, acct_token, expiry, billing FROM cardholders "

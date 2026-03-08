@@ -1,0 +1,3 @@
+{
+    "pciAuditor.scanBackend": "azure-search"
+}
