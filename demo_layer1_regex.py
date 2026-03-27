@@ -17,7 +17,6 @@ DB_PASSWORD = "postgres_admin_2024"
 PAYMENT_GATEWAY_URL = "http://payments.example.com/charge"
 CARD_VAULT_URL      = "http://vault.internal/tokenise"
 
-
 def hash_password_md5(raw: str) -> str:
     return hashlib.md5(raw.encode()).hexdigest()
 
