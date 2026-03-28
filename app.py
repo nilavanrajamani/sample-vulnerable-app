@@ -1,5 +1,6 @@
 # Sample Vulnerable Payment Application
 # This is a demo app with multiple PCI DSS violations for testing pci-auditor
+# Additional vulnerabilities can be added as needed for testing purposes
 
 import os
 import sqlite3
