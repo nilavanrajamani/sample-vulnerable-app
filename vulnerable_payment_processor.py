@@ -1,5 +1,6 @@
 # HIGHLY VULNERABLE PAYMENT PROCESSOR
 # This module contains PCI DSS violations for demonstration purposes
+# DO NOT USE THIS CODE IN PRODUCTION
 
 import sqlite3
 import json
